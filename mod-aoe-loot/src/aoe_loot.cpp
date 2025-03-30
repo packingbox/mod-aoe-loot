@@ -23,11 +23,11 @@ bool AOELootServer::CanPacketReceive(WorldSession* session, WorldPacket& packet)
     {
         if (!sConfigMgr->GetOption<bool>("AOELoot.Enable", true))
             return true;
-
-        if (player->GetGroup() && !sConfigMgr->GetOption<bool>("AOELoot.Group", true))
-            return true;
         
         Player* player = session->GetPlayer();
+        
+        if (player->GetGroup() && !sConfigMgr->GetOption<bool>("AOELoot.Group", true))
+            return true;
 
         float range = sConfigMgr->GetOption<float>("AOELoot.Range", 55.0);
 
