@@ -36,3 +36,13 @@ AOELoot.Range = 55.0
 #
 
 AOELoot.Group = 1
+
+
+#   AOELoot.Debug
+#       Description: Enables debuging mode. This will print out the items Detected values of loot in the chat console. The values in the chat should match the looted values, give or take the main looted creature. 
+#       Default:    0 (Disabled)
+#       Possible values:    0 - (Disabled)
+#                           1 - (Enabled)
+#
+
+AOELoot.Debug = 0
