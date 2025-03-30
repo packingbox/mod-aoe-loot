@@ -5,6 +5,7 @@
 #include "Player.h"
 #include "Chat.h"
 #include "Creature.h"
+#include "Config.h"
 
 
 void AOELootPlayer::OnPlayerLogin(Player* player)
@@ -18,16 +19,15 @@ void AOELootPlayer::OnPlayerLogin(Player* player)
 
 bool AOELootServer::CanPacketReceive(WorldSession* session, WorldPacket& packet)
 {
-    LOG_DEBUG("module.aoe_loot", "CanPacketReceive function called for opcode {}", packet.GetOpcode());
     if (packet.GetOpcode() == CMSG_LOOT)
     {
-        Player* player = session->GetPlayer();
-
         if (!sConfigMgr->GetOption<bool>("AOELoot.Enable", true))
             return true;
 
         if (player->GetGroup() && !sConfigMgr->GetOption<bool>("AOELoot.Group", true))
             return true;
+        
+        Player* player = session->GetPlayer();
 
         float range = sConfigMgr->GetOption<float>("AOELoot.Range", 55.0);
 
@@ -44,8 +44,10 @@ bool AOELootServer::CanPacketReceive(WorldSession* session, WorldPacket& packet)
                 continue;
 
             Loot* loot = &creature->loot;
-
-
+            if (!sConfigMgr->GetOption<bool>("AOELoot.Debug", true)){
+                LOG_DEBUG("module.aoe_loot", "Quest Items Size for {}: {}", creature->GetAIName(), loot->quest_items.size());
+                ChatHandler(player->GetSession()).PSendSysMessage(fmt::format("AOE Loot: Quest Items Size for {}: {}", creature->GetAIName(), loot->quest_items.size()));
+            }
             // Process quest items
             for (size_t i = 0; i < loot->quest_items.size(); ++i)
             {
@@ -54,8 +56,10 @@ bool AOELootServer::CanPacketReceive(WorldSession* session, WorldPacket& packet)
                 autostorePacket << i; // Use the index i as the slot for this creature
                 session->HandleAutostoreLootItemOpcode(autostorePacket);
             }
-
-
+            if (!sConfigMgr->GetOption<bool>("AOELoot.Debug", true)){
+                LOG_DEBUG("module.aoe_loot", "Regular Items Size for {}: {}", creature->GetAIName(), loot->items.size());
+                ChatHandler(player->GetSession()).PSendSysMessage(fmt::format("AOE Loot: Regular Items Size for {}: {}", creature->GetAIName(), loot->items.size()));
+            }
             // Process regular items
             for (size_t i = 0; i < loot->items.size(); ++i)
             {
@@ -64,8 +68,11 @@ bool AOELootServer::CanPacketReceive(WorldSession* session, WorldPacket& packet)
                 autostorePacket << i; // Use the index i as the slot for this creature
                 session->HandleAutostoreLootItemOpcode(autostorePacket);
             }
-
-
+            if (!sConfigMgr->GetOption<bool>("AOELoot.Debug", true)){
+                LOG_DEBUG("module.aoe_loot", "Gold Amount for {}: {}", creature->GetAIName(), loot->gold);
+                ChatHandler(player->GetSession()).PSendSysMessage(fmt::format("AOE Loot: Found {} gold on nearby corpse.", loot->gold));
+            }
+            // Process gold
             if (creature->loot.gold > 0)
             {
                 player->SetLootGUID(creature->GetGUID());
