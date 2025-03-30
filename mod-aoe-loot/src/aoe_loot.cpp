@@ -25,7 +25,7 @@ bool AOELootServer::CanPacketReceive(WorldSession* session, WorldPacket& packet)
             return true;
         
         Player* player = session->GetPlayer();
-        
+
         if (player->GetGroup() && !sConfigMgr->GetOption<bool>("AOELoot.Group", true))
             return true;
 
@@ -40,6 +40,10 @@ bool AOELootServer::CanPacketReceive(WorldSession* session, WorldPacket& packet)
         for (auto* creature : lootcreature)
         {
 
+            if (creature->GetGUID() == mainGuid)
+            {
+                continue; // Skip AOE loot for the main mob
+            }
             if (!player->GetMap()->Instanceable() && !player->isAllowedToLoot(creature))
                 continue;
 
@@ -79,13 +83,12 @@ bool AOELootServer::CanPacketReceive(WorldSession* session, WorldPacket& packet)
                 WorldPacket moneyPacket(CMSG_LOOT_MONEY, 0); // Create a dummy packet
                 session->HandleLootMoneyOpcode(moneyPacket);
             }
-
-            if (!loot->empty())
+            
+            if (loot->empty())
             {
-                creature->loot.clear();
                 creature->AllLootRemovedFromCorpse();
-                creature->RemoveDynamicFlag(UNIT_DYNFLAG_LOOTABLE);
             }
+            
         }
         return true;
     }
