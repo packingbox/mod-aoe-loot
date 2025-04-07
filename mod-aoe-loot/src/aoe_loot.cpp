@@ -3,7 +3,7 @@
 #include "World.h"
 #include "LootMgr.h"
 #include "ServerScript.h"
-#include "WorldSession.h" // Include for HandleAutostoreLootItemOpcode
+#include "WorldSession.h"
 #include "WorldPacket.h" 
 #include "Player.h"
 #include "Chat.h"
@@ -14,7 +14,7 @@
 #include "Config.h"
 #include "Log.h"
 #include "Map.h"
-#include <fmt/format.h> // Make sure to include this if you're using fmt::format
+#include <fmt/format.h>
 
 using namespace Acore::ChatCommands;
 
