@@ -72,6 +72,11 @@ bool AoeLootCommandScript::HandleStartAoeLootCommand(ChatHandler* handler, Optio
         if (!player || !creature || !player->IsInWorld())
             continue;
 
+        if (!creature->hasLootRecipient() || !creature->isTappedBy(player)) {
+            // Not a valid loot target for this player
+            continue;
+        }
+    
         // Skip if corpse is not valid for looting
         if (!creature->HasDynamicFlag(UNIT_DYNFLAG_LOOTABLE))
         {
@@ -84,14 +89,17 @@ bool AoeLootCommandScript::HandleStartAoeLootCommand(ChatHandler* handler, Optio
         }
 
         // Additional permission check
-        if (!player->GetMap()->Instanceable() && !player->isAllowedToLoot(creature))
+        if (!player->GetMap()->Instanceable())
         {
-            if (sConfigMgr->GetOption<bool>("AOELoot.Debug", true))
+            if(!player->isAllowedToLoot(creature))
             {
-                LOG_DEBUG("module.aoe_loot", "AOE Loot: Skipping creature {} - player not allowed to loot", creature->GetGUID().ToString());
-                handler->PSendSysMessage(fmt::format("AOE Loot: Skipping creature {} - player not allowed to loot", creature->GetGUID().ToString()));
+                if (sConfigMgr->GetOption<bool>("AOELoot.Debug", true))
+                {
+                    LOG_DEBUG("module.aoe_loot", "AOE Loot: Skipping creature {} - player not allowed to loot", creature->GetGUID().ToString());
+                    handler->PSendSysMessage(fmt::format("AOE Loot: Skipping creature {} - player not allowed to loot", creature->GetGUID().ToString()));
+                }
+                continue;
             }
-            continue;
         }
             
         // Double-check distance to prevent exploits
@@ -105,8 +113,8 @@ bool AoeLootCommandScript::HandleStartAoeLootCommand(ChatHandler* handler, Optio
             continue;
         }
         
-        // Set loot GUID to current creature
         player->SetLootGUID(creature->GetGUID());
+        
         Loot* loot = &creature->loot;
         
         uint32 maxSlots = loot->GetMaxSlotInLootFor(player);
@@ -123,19 +131,21 @@ bool AoeLootCommandScript::HandleStartAoeLootCommand(ChatHandler* handler, Optio
         for (uint32 i = 0; i < maxSlots; ++i)
         {
             LootItem* lootItem = loot->LootItemInSlot(i, player);
-
+            
             if (!lootItem)
-                continue;
-                
-            // Check if player can loot this item
-            if (!lootItem->AllowedForPlayer(player, creature->GetGUID()))
+            continue;
+            
+            if (!player->GetMap()->Instanceable())
             {
-                if (sConfigMgr->GetOption<bool>("AOELoot.Debug", true))
+                if(!player->isAllowedToLoot(creature))
                 {
-                    LOG_DEBUG("module.aoe_loot", "AOE Loot: Item in slot {} not allowed for player - skipping", i);
-                    handler->PSendSysMessage(fmt::format("AOE Loot: Item in slot {} not allowed for player - skipping", i));
+                    if (sConfigMgr->GetOption<bool>("AOELoot.Debug", true))
+                    {
+                        LOG_DEBUG("module.aoe_loot", "AOE Loot: Item in slot {} not allowed for player - skipping", i);
+                        handler->PSendSysMessage(fmt::format("AOE Loot: Item in slot {} not allowed for player - skipping", i));
+                    }
+                    continue;
                 }
-                continue;
             }
             
             // Skip items that are currently being rolled on in group
@@ -144,122 +154,47 @@ bool AoeLootCommandScript::HandleStartAoeLootCommand(ChatHandler* handler, Optio
                 if (sConfigMgr->GetOption<bool>("AOELoot.Debug", true))
                 {
                     totalSkippedItems++;
-
+                    
                     LOG_DEBUG("module.aoe_loot", "AOE Loot: Item in slot {} is currently being rolled on - skipping", i);
                     handler->PSendSysMessage(fmt::format("AOE Loot: Item in slot {} is currently being rolled on - skipping", i));
                 }
                 continue;
-            }
-                
-            // First pass - only process quest items
-            ItemTemplate const* itemTemplate = sObjectMgr->GetItemTemplate(lootItem->itemid);
-
-            if (!itemTemplate || !(itemTemplate->Class == ITEM_CLASS_QUEST))
-                continue;
-                
-            if (sConfigMgr->GetOption<bool>("AOELoot.Debug", true))
-            {
-                LOG_DEBUG("module.aoe_loot", "AOE Loot: Attempting to loot quest item ID: {} Count: {} Slot: {} from {}", lootItem->itemid, static_cast<uint32_t>(lootItem->count), i, creature->GetGUID().ToString());
-                handler->PSendSysMessage(fmt::format("AOE Loot: Attempting to loot quest item ID: {} Count: {} Slot: {} from {}", lootItem->itemid, static_cast<uint32_t>(lootItem->count), i, creature->GetGUID().ToString()));
             }
             
             // Store the loot item in the player's inventory
             InventoryResult msg;
             player->StoreLootItem(i, loot, msg);
-
+            
             if (sConfigMgr->GetOption<bool>("AOELoot.Debug", true))
             {
                 totalItemsLooted++;
                 itemsLootedFromCorpse++;
-
+                
                 LOG_DEBUG("module.aoe_loot", "AOE Loot: Successfully looted quest item (ID: {}) x{} from {}", lootItem->itemid, static_cast<uint32_t>(lootItem->count), creature->GetGUID().ToString());
                 handler->PSendSysMessage(fmt::format("AOE Loot: Successfully looted quest item (ID: {}) x{} from {}", lootItem->itemid, static_cast<uint32_t>(lootItem->count), creature->GetGUID().ToString()));
             }
         }
-
-        // Process items - second pass for non-quest items
-        for (uint32 i = 0; i < maxSlots; ++i)
-        {
-            LootItem* lootItem = loot->LootItemInSlot(i, player);
-
-            if (!lootItem)
-                continue;
-                
-            // Check if player can loot this item
-            if (!lootItem->AllowedForPlayer(player, creature->GetGUID()))
-            {
-                continue;
-            }
-            
-            // Skip items that are currently being rolled on in group
-            if (lootItem->is_blocked)
-            {
-                if (sConfigMgr->GetOption<bool>("AOELoot.Debug", true))
-                {
-                    totalSkippedItems++;
-
-                    LOG_DEBUG("module.aoe_loot", "AOE Loot: Item in slot {} is currently being rolled on - skipping", i);
-                    handler->PSendSysMessage(fmt::format("AOE Loot: Item in slot {} is currently being rolled on - skipping", i));
-                }
-                continue;
-            }
-                
-            // Second pass - skip quest items (already processed)
-            ItemTemplate const* itemTemplate = sObjectMgr->GetItemTemplate(lootItem->itemid);
-
-            if (!itemTemplate || (itemTemplate->Class == ITEM_CLASS_QUEST))
-                continue;
-                
-            if (sConfigMgr->GetOption<bool>("AOELoot.Debug", true))
-            {
-                LOG_DEBUG("module.aoe_loot", "AOE Loot: Attempting to loot item ID: {} Count: {} Slot: {} from {}", lootItem->itemid, static_cast<uint32_t>(lootItem->count), i, creature->GetGUID().ToString());
-                handler->PSendSysMessage(fmt::format("AOE Loot: Attempting to loot item ID: {} Count: {} Slot: {} from {}", lootItem->itemid, static_cast<uint32_t>(lootItem->count), i, creature->GetGUID().ToString()));
-            }
-
-            InventoryResult msg;
-            player->StoreLootItem(i, loot, msg);
-
-            if (sConfigMgr->GetOption<bool>("AOELoot.Debug", true))
-            {
-                totalItemsLooted++;
-                itemsLootedFromCorpse++;
-
-                LOG_DEBUG("module.aoe_loot", "AOE Loot: Successfully looted item (ID: {}) x{} from {}", lootItem->itemid, static_cast<uint32_t>(lootItem->count), creature->GetGUID().ToString());
-                handler->PSendSysMessage(fmt::format("AOE Loot: Successfully looted item (ID: {}) x{} from {}", lootItem->itemid, static_cast<uint32_t>(lootItem->count), creature->GetGUID().ToString()));
-            }
-        }
-
         // Process gold
         if (loot->gold > 0)
         {
-            uint32 copperAmount = loot->gold;
-            player->ModifyMoney(copperAmount);
-            player->UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_LOOT_MONEY, copperAmount);
-            loot->gold = 0;
-        
+            // Create a dummy packet for money loot
+            WorldPacket moneyPacket(CMSG_LOOT_MONEY, 0);
+            // Send the packet to loot money
+            player->GetSession()->HandleLootMoneyOpcode(moneyPacket);
+
             if (sConfigMgr->GetOption<bool>("AOELoot.Debug", true))
             {
-                totalCopperLooted += copperAmount;
-
-                LOG_DEBUG("module.aoe_loot", "AOE Loot: Looted {} copper from {}", copperAmount, creature->GetGUID().ToString());
-                handler->PSendSysMessage(fmt::format("AOE Loot: Looted {} copper from {}", copperAmount, creature->GetGUID().ToString()));
+                LOG_DEBUG("module.aoe_loot", "AOE Loot: Looted {} copper from {}", loot->gold, creature->GetGUID().ToString());
+                handler->PSendSysMessage(fmt::format("AOE Loot: Looted {} copper from {}", loot->gold, creature->GetGUID().ToString()));
             }
-            handler->PSendSysMessage(fmt::format("AOE Loot: Looted {} copper from {}", copperAmount, creature->GetGUID().ToString()));
         }
 
         // Check if the corpse is now fully looted
-        if (loot->isLooted())
+        if (loot->isLooted() && loot->quest_items.empty())
         {
-            if (sConfigMgr->GetOption<bool>("AOELoot.Debug", true))
-            {
-                totalCorpsesLooted++;
-                LOG_DEBUG("module.aoe_loot", "AOE Loot: All loot removed from corpse for {}", creature->GetGUID().ToString());
-                handler->PSendSysMessage(fmt::format("AOE Loot: All loot removed from corpse for {}", creature->GetGUID().ToString()));
-            }
-            
-            // Cleanup the loot object from the corpse
-            creature->AllLootRemovedFromCorpse();
-            creature->RemoveDynamicFlag(UNIT_DYNFLAG_LOOTABLE);
+                // Cleanup the loot object from the corpse
+                creature->AllLootRemovedFromCorpse();
+                creature->RemoveDynamicFlag(UNIT_DYNFLAG_LOOTABLE);
         }
     }
 
@@ -268,7 +203,7 @@ bool AoeLootCommandScript::HandleStartAoeLootCommand(ChatHandler* handler, Optio
         LOG_DEBUG("module.aoe_loot", "AOE Loot: Summary - Looted {} items, {} gold from {} corpses, skipped {} items", totalItemsLooted, totalCopperLooted, totalCorpsesLooted, totalSkippedItems);
         handler->PSendSysMessage(fmt::format("AOE Loot: Looted {} items and {} gold from {} corpses", totalItemsLooted, totalCopperLooted, totalCorpsesLooted)); 
     }
-
+    player->SetLootGUID(ObjectGuid::Empty);
     return true;
 }
 
