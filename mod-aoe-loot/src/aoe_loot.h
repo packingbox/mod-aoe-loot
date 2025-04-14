@@ -20,8 +20,7 @@ using namespace Acore::ChatCommands;
 
 enum AoeLootString
 {
-    AOE_ACORE_STRING_MESSAGE = 50000,
-    AOE_ITEM_IN_THE_MAIL
+    AOE_ACORE_STRING_MESSAGE = 50000
 };
 
 class AOELootServer : public ServerScript
@@ -48,6 +47,7 @@ public:
     ChatCommandTable GetCommands() const override;
 
     static bool HandleStartAoeLootCommand(ChatHandler* handler, Optional<std::string> args);
+    
 };
 
 void AddSC_AoeLoot();
