@@ -28,7 +28,7 @@ bool AOELootServer::CanPacketReceive(WorldSession* session, WorldPacket& packet)
         if (player)
         {
             /*
-            // Check if SHIFT key is pressed - if so, bypass AOE loot -> Work In Progress
+            // Check if SHIFT key is pressed - if so, bypass AOE loot
             if (player->HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_MODIFIER_ACTIVE))
             {
                 if (sConfigMgr->GetOption<bool>("AOELoot.Debug", true))
@@ -58,17 +58,17 @@ ChatCommandTable AoeLootCommandScript::GetCommands() const
 bool AoeLootCommandScript::HandleStartAoeLootCommand(ChatHandler* handler, Optional<std::string> /*args*/)
 {
     if (!sConfigMgr->GetOption<bool>("AOELoot.Enable", true))
-        return true;
+    return true;
 
     Player* player = handler->GetSession()->GetPlayer();
     if (!player)
-        return true;
+    return true;
 
     float range = sConfigMgr->GetOption<float>("AOELoot.Range", 55.0);
 
     std::list<Creature*> nearbyCorpses;
     player->GetDeadCreatureListInGrid(nearbyCorpses, range);
-    
+
     uint32 totalItemsLooted = 0;
     uint32 totalCopperLooted = 0;
     uint32 totalCorpsesLooted = 0;
@@ -78,18 +78,21 @@ bool AoeLootCommandScript::HandleStartAoeLootCommand(ChatHandler* handler, Optio
         LOG_DEBUG("module.aoe_loot", "AOE Loot: Found {} nearby corpses within range {}.", nearbyCorpses.size(), range);
         handler->PSendSysMessage(fmt::format("AOE Loot: Found {} nearby corpses within range {}.", nearbyCorpses.size(), range));
     }
-    
+
     // Process each corpse one by one
     for (auto* creature : nearbyCorpses)
     {
         if (!player || !creature || !player->IsInWorld())
+        {
             continue;
+        }
 
-        if (!creature->hasLootRecipient() || !creature->isTappedBy(player)) {
+        if (!creature->hasLootRecipient() || !creature->isTappedBy(player)) 
+        {
             // Not a valid loot target for this player
             continue;
         }
-    
+
         // Skip if corpse is not valid for looting
         if (!creature->HasDynamicFlag(UNIT_DYNFLAG_LOOTABLE))
         {
@@ -102,7 +105,7 @@ bool AoeLootCommandScript::HandleStartAoeLootCommand(ChatHandler* handler, Optio
         }
 
         // Additional permission check
-        if (!player->GetMap()->Instanceable())
+        if (player->GetMap()->Instanceable())
         {
             if(!player->isAllowedToLoot(creature))
             {
@@ -114,7 +117,7 @@ bool AoeLootCommandScript::HandleStartAoeLootCommand(ChatHandler* handler, Optio
                 continue;
             }
         }
-            
+        
         // Double-check distance to prevent exploits
         if (player->GetDistance(creature) > range)
         {
@@ -130,23 +133,20 @@ bool AoeLootCommandScript::HandleStartAoeLootCommand(ChatHandler* handler, Optio
         player->SetLootGUID(creature->GetGUID());
         
         Loot* loot = &creature->loot;
-
+        
         if (!loot)
+        {
             continue;
-
+        }
+    
         // Process regular items
         for (uint8 lootSlot = 0; lootSlot < loot->items.size(); ++lootSlot)
         {
-            if (loot->items[lootSlot].is_looted || loot->items[lootSlot].is_blocked)
-                continue;
-                
-            if (!loot->items[lootSlot].AllowedForPlayer(player, creature->GetGUID()))
-                continue;
-            
+
             // Store the loot item in the player's inventory
             InventoryResult msg;
             player->StoreLootItem(lootSlot, loot, msg);
-            
+
             // Debug
             if (sConfigMgr->GetOption<bool>("AOELoot.Debug", true))
             {
@@ -166,15 +166,12 @@ bool AoeLootCommandScript::HandleStartAoeLootCommand(ChatHandler* handler, Optio
             // Try to loot each potential quest slot
             for (uint8 i = 0; i < loot->quest_items.size(); ++i)
             {
-                if (loot->quest_items[i].is_looted || loot->quest_items[i].is_blocked)
-                    continue;
-
                 uint8 lootSlot = firstQuestSlot + i;
-
+                
                 // Store the loot item in the player's inventory
                 InventoryResult msg;
                 player->StoreLootItem(lootSlot, loot, msg);
-                
+
                 // Debug logging
                 if (sConfigMgr->GetOption<bool>("AOELoot.Debug", true))
                 {
@@ -182,7 +179,7 @@ bool AoeLootCommandScript::HandleStartAoeLootCommand(ChatHandler* handler, Optio
                     
                     LOG_DEBUG("module.aoe_loot", "AOE Loot: Successfully looted quest item from slot {}", lootSlot);
                     handler->PSendSysMessage(fmt::format("AOE Loot: Successfully looted quest item from slot {}", lootSlot));
-                
+                    
                 }
             }
         }
@@ -202,23 +199,24 @@ bool AoeLootCommandScript::HandleStartAoeLootCommand(ChatHandler* handler, Optio
             }     
         }
 
-        
         // Check if the corpse is now fully looted
-        if (loot->isLooted() && loot->quest_items.empty())
+        if (loot->isLooted())
         {
             // Cleanup the loot object from the corpse
             creature->AllLootRemovedFromCorpse();
             creature->RemoveDynamicFlag(UNIT_DYNFLAG_LOOTABLE);
         }
-    }
-    
-    if (sConfigMgr->GetOption<bool>("AOELoot.Debug", true))
-    {
-        LOG_DEBUG("module.aoe_loot", "AOE Loot: Summary - Looted {} items, {} gold from {} corpses", totalItemsLooted, totalCopperLooted, totalCorpsesLooted);
-        handler->PSendSysMessage(fmt::format("AOE Loot: Looted {} items and {} gold from {} corpses", totalItemsLooted, totalCopperLooted, totalCorpsesLooted)); 
+
+        
+        if (sConfigMgr->GetOption<bool>("AOELoot.Debug", true))
+        {
+            LOG_DEBUG("module.aoe_loot", "AOE Loot: Summary - Looted {} items, {} gold from {} corpses", totalItemsLooted, totalCopperLooted, totalCorpsesLooted);
+            handler->PSendSysMessage(fmt::format("AOE Loot: Looted {} items and {} gold from {} corpses", totalItemsLooted, totalCopperLooted, totalCorpsesLooted)); 
+        }
     }
     return true;
 }
+
 
 // Copied from sudlud's "mod-aoe-loot" module.
 void AOELootPlayer::OnPlayerLogin(Player* player)
