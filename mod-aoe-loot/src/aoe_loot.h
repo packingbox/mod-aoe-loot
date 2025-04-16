@@ -23,18 +23,18 @@ enum AoeLootString
     AOE_ACORE_STRING_MESSAGE = 50000
 };
 
-class AOELootServer : public ServerScript
+class AoeLootServer : public ServerScript
 {
 public:
-    AOELootServer() : ServerScript("AOELootServer") {}
+    AoeLootServer() : ServerScript("AoeLootServer") {}
 
     bool CanPacketReceive(WorldSession* session, WorldPacket& packet) override;
 };
 
-class AOELootPlayer : public PlayerScript
+class AoeLootPlayer : public PlayerScript
 {
 public:
-    AOELootPlayer() : PlayerScript("AOELootPlayer") {}
+    AoeLootPlayer() : PlayerScript("AoeLootPlayer") {}
 
     void OnPlayerLogin(Player* player) override;
 
@@ -47,10 +47,11 @@ public:
     ChatCommandTable GetCommands() const override;
 
     static bool HandleStartAoeLootCommand(ChatHandler* handler, Optional<std::string> args);
+    static bool ProcessLootSlot(Player* player, ObjectGuid lguid, uint8 lootSlot);
+    static bool ProcessLootMoney(Player* player, Creature* creature);
     
 };
 
 void AddSC_AoeLoot();
-
 
 #endif //MODULE_AOELOOT_H
