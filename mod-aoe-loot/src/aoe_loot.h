@@ -49,9 +49,11 @@ public:
     static bool HandleStartAoeLootCommand(ChatHandler* handler, Optional<std::string> args);
     static bool ProcessLootSlot(Player* player, ObjectGuid lguid, uint8 lootSlot);
     static bool ProcessLootMoney(Player* player, Creature* creature);
+    static void ProcessLootRelease(ObjectGuid lguid, Player* player, Loot* loot);
     
 };
 
 void AddSC_AoeLoot();
+
 
 #endif //MODULE_AOELOOT_H
