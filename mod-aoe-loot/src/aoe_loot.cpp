@@ -48,7 +48,6 @@ void AoeLootCommandScript::ProcessLootRelease(ObjectGuid lguid, Player* player, 
 {
     player->SetLootGUID(ObjectGuid::Empty);
     player->SendLootRelease(lguid);
-
     player->RemoveUnitFlag(UNIT_FLAG_LOOTING);
 
     if (!player->IsInWorld())
@@ -67,22 +66,15 @@ void AoeLootCommandScript::ProcessLootRelease(ObjectGuid lguid, Player* player, 
 
         loot = &go->loot;
 
-        // GameObject handling remains unchanged
-        // ...
     }
     else if (lguid.IsCorpse()) // ONLY remove insignia at BG
     {
         Corpse* corpse = ObjectAccessor::GetCorpse(*player, lguid);
         
-        // Remove distance check for corpses
         if (!corpse)
             return;
 
         loot = &corpse->loot;
-
-        // Clear loot and remove lootable flag
-        loot->clear();
-        corpse->RemoveFlag(CORPSE_FIELD_DYNAMIC_FLAGS, CORPSE_DYNFLAG_LOOTABLE);
     }
     else if (lguid.IsItem())
     {
@@ -90,22 +82,24 @@ void AoeLootCommandScript::ProcessLootRelease(ObjectGuid lguid, Player* player, 
         if (!pItem)
             return;
 
-        // Item handling remains unchanged
-        // ...
     }
     else // Must be a creature
     {
         Creature* creature = player->GetMap()->GetCreature(lguid);
-        
-        // Check if this is pickpocketing (creature alive) or corpse looting (creature dead)
+
+        // Skip distance check for dead creatures (corpses)
+        // Keep distance check for pickpocketing (live creatures)
         bool isPickpocketing = creature && creature->IsAlive() && player->IsClass(CLASS_ROGUE, CLASS_CONTEXT_ABILITY) && creature->loot.loot_type == LOOT_PICKPOCKETING;
         
-        // For pickpocketing, keep distance check
-        // For corpse looting, skip distance check
-        if (!creature || (isPickpocketing && !creature->IsWithinDistInMap(player, INTERACTION_DISTANCE)))
+        // Only check distance for pickpocketing, not for corpse looting
+        if (isPickpocketing && !creature->IsWithinDistInMap(player, INTERACTION_DISTANCE))
+        {
+            player->SendLootError(lguid, LOOT_ERROR_TOO_FAR);
             return;
-
+        }
+        
         loot = &creature->loot;
+        
         
         if (loot->isLooted())
         {
@@ -247,22 +241,22 @@ bool AoeLootCommandScript::ProcessLootSlot(Player* player, ObjectGuid lguid, uin
         // Keep distance check for pickpocketing (live creatures)
         bool isPickpocketing = creature && creature->IsAlive() && player->IsClass(CLASS_ROGUE, CLASS_CONTEXT_ABILITY) && creature->loot.loot_type == LOOT_PICKPOCKETING;
         
-        bool lootAllowed = creature && creature->IsAlive() == isPickpocketing;
-        
         // Only check distance for pickpocketing, not for corpse looting
-        if (!lootAllowed || (isPickpocketing && !creature->IsWithinDistInMap(player, INTERACTION_DISTANCE)))
+        if (isPickpocketing && !creature->IsWithinDistInMap(player, INTERACTION_DISTANCE))
         {
-            player->SendLootError(lguid, lootAllowed ? LOOT_ERROR_TOO_FAR : LOOT_ERROR_DIDNT_KILL);
+            player->SendLootError(lguid, LOOT_ERROR_TOO_FAR);
             return false;
         }
-
+        
         loot = &creature->loot;
+
     }
 
     sScriptMgr->OnPlayerAfterCreatureLoot(player);
     if (!loot)
         return false;
     // Check if the item is already looted
+
     QuestItem* qitem = nullptr;
     QuestItem* ffaitem = nullptr;
     QuestItem* conditem = nullptr;
@@ -275,6 +269,14 @@ bool AoeLootCommandScript::ProcessLootSlot(Player* player, ObjectGuid lguid, uin
         
         return false;
     }
+
+    // Skip items being rolled on
+    if (item->is_blocked)
+        return false;
+        
+    // Skip already looted items
+    if (item->is_looted)
+        return false;
 
     InventoryResult msg;
     LootItem* lootItem = player->StoreLootItem(lootSlot, loot, msg);
@@ -323,22 +325,51 @@ bool AoeLootCommandScript::HandleStartAoeLootCommand(ChatHandler* handler, Optio
             continue;
 
         // Check if creature is valid for looting by this player
+        if (!player->isAllowedToLoot(creature))
+        {
+            if (debugMode)
+                LOG_DEBUG("module.aoe_loot", "AOE Loot: Skipping creature {} - not your loot", creature->GetGUID().ToString());
+            continue;
+        }
+
         if (!creature->hasLootRecipient() || !creature->isTappedBy(player))
             continue;
+
+        // Get player's group and check loot permissions based on group loot method
+        Group* group = player->GetGroup();
+        if (group)
+        {
+            Loot* loot = &creature->loot;
+            LootMethod lootMethod = group->GetLootMethod();
+            // For Round Robin loot, check if this player is the designated looter
+            if (lootMethod == ROUND_ROBIN)
+            {
+                if (loot->roundRobinPlayer && loot->roundRobinPlayer != player->GetGUID())
+                {
+                    if (debugMode)
+                        LOG_DEBUG("module.aoe_loot", "AOE Loot: Skipping creature {} - not your turn (Round Robin)", creature->GetGUID().ToString());
+                    
+                    continue;
+                }
+            }
+            // For Master Loot, check if this player is the master looter
+            else if (lootMethod == MASTER_LOOT)
+            {
+                if (group->GetMasterLooterGuid() != player->GetGUID())
+                {
+                    if (debugMode)
+                        LOG_DEBUG("module.aoe_loot", "AOE Loot: Skipping creature {} - not master looter", creature->GetGUID().ToString());
+
+                    continue;
+                }
+            }
+        }
 
         // Skip if corpse is not lootable
         if (!creature->HasDynamicFlag(UNIT_DYNFLAG_LOOTABLE))
         {
             if (debugMode)
                 LOG_DEBUG("module.aoe_loot", "AOE Loot: Skipping creature {} - not lootable", creature->GetGUID().ToString());
-            continue;
-        }
-
-        // Additional permission check for instances
-        if (player->GetMap()->Instanceable() && !player->isAllowedToLoot(creature))
-        {
-            if (debugMode)
-                LOG_DEBUG("module.aoe_loot", "AOE Loot: Skipping creature {} - not your loot", creature->GetGUID().ToString());
             continue;
         }
         
@@ -367,7 +398,6 @@ bool AoeLootCommandScript::HandleStartAoeLootCommand(ChatHandler* handler, Optio
             {
                 uint8 lootSlot = loot->items.size() + i;
                 ProcessLootSlot(player, lguid, lootSlot);
-                
                 if (debugMode)
                     LOG_DEBUG("module.aoe_loot", "AOE Loot: looted quest item in slot {}", lootSlot);
             }
@@ -378,7 +408,6 @@ bool AoeLootCommandScript::HandleStartAoeLootCommand(ChatHandler* handler, Optio
         {
             player->SetLootGUID(lguid);
             ProcessLootSlot(player, lguid, lootSlot);
-
             if (debugMode && lootSlot < loot->items.size())
             {
                 LOG_DEBUG("module.aoe_loot", "AOE Loot: looted item from slot {} (ID: {}) from {}", lootSlot, loot->items[lootSlot].itemid, lguid.ToString());
@@ -390,7 +419,6 @@ bool AoeLootCommandScript::HandleStartAoeLootCommand(ChatHandler* handler, Optio
         {
             uint32 goldAmount = loot->gold;
             ProcessLootMoney(player, creature);
-            
             if (debugMode)
             {
                 LOG_DEBUG("module.aoe_loot", "AOE Loot: Looted {} copper from {}", goldAmount, lguid.ToString());
