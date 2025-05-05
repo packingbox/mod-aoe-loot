@@ -227,8 +227,7 @@ bool AoeLootCommandScript::ProcessLootSlot(Player* player, ObjectGuid lguid, uin
         Corpse* bones = ObjectAccessor::GetCorpse(*player, lguid);
         if (!bones)
         {
-            player->SendLootRelease(lguid);
-            ProcessLootRelease(lguid, player, loot); 
+            player->SendLootRelease(lguid); 
             return false;
         }
         loot = &bones->loot;
@@ -255,28 +254,6 @@ bool AoeLootCommandScript::ProcessLootSlot(Player* player, ObjectGuid lguid, uin
     sScriptMgr->OnPlayerAfterCreatureLoot(player);
     if (!loot)
         return false;
-    // Check if the item is already looted
-
-    QuestItem* qitem = nullptr;
-    QuestItem* ffaitem = nullptr;
-    QuestItem* conditem = nullptr;
-    LootItem* item = loot->LootItemInSlot(lootSlot, player, &qitem, &ffaitem, &conditem);
-    
-    if (!item)
-    {
-        if (sConfigMgr->GetOption<bool>("AOELoot.Debug", false))
-        LOG_DEBUG("module.aoe_loot", "No valid loot item found in slot {}", lootSlot);
-        
-        return false;
-    }
-
-    // Skip items being rolled on
-    if (item->is_blocked)
-        return false;
-        
-    // Skip already looted items
-    if (item->is_looted)
-        return false;
 
     InventoryResult msg;
     LootItem* lootItem = player->StoreLootItem(lootSlot, loot, msg);
@@ -296,6 +273,8 @@ bool AoeLootCommandScript::ProcessLootSlot(Player* player, ObjectGuid lguid, uin
     }
     return true;
 }
+
+
 
 bool AoeLootCommandScript::HandleStartAoeLootCommand(ChatHandler* handler, Optional<std::string> /*args*/)
 {
@@ -386,10 +365,113 @@ bool AoeLootCommandScript::HandleStartAoeLootCommand(ChatHandler* handler, Optio
     {
         ObjectGuid lguid = creature->GetGUID();
         Loot* loot = &creature->loot;
+        if (validCorpses.size() <= 1)
+        {
+            break;
+        }
         if (!loot)
             continue;
 
         player->SetLootGUID(lguid);
+        /*
+        // Add processing for PlayerQuestItems (player-specific quest items)
+        QuestItemMap const& playerQuestItems = loot->GetPlayerQuestItems();
+        if (!playerQuestItems.empty())
+        {
+            QuestItemMap::const_iterator pqItr = playerQuestItems.find(player->GetGUID());
+            if (pqItr != playerQuestItems.end())
+            {
+                QuestItemList* pql = pqItr->second;
+                if (pql)
+                {
+                    for (QuestItemList::const_iterator iter = pql->begin(); iter != pql->end(); ++iter)
+                    {
+                        ProcessLootSlot(player, lguid, iter->index);
+                        if (debugMode)
+                            LOG_DEBUG("module.aoe_loot", "AOE Loot: looted player quest item in slot {}", iter->index);
+                    }
+                }
+            }
+        }
+
+        // Add processing for PlayerFFAItems (Free-For-All quest items)
+        QuestItemMap const& playerFFAItems = loot->GetPlayerFFAItems();
+        if (!playerFFAItems.empty())
+        {
+            QuestItemMap::const_iterator pqItr = playerFFAItems.find(player->GetGUID());
+            if (pqItr != playerFFAItems.end())
+            {
+                QuestItemList* pql = pqItr->second;
+                if (pql)
+                {
+                    for (QuestItemList::const_iterator iter = pql->begin(); iter != pql->end(); ++iter)
+                    {
+                        ProcessLootSlot(player, lguid, iter->index);
+                        if (debugMode)
+                            LOG_DEBUG("module.aoe_loot", "AOE Loot: looted player FFA item in slot {}", iter->index);
+                    }
+                }
+            }
+        }
+
+        // Add processing for PlayerNonQuestNonFFAConditionalItems
+        QuestItemMap const& playerNonQuestNonFFAConditionalItems = loot->GetPlayerNonQuestNonFFAConditionalItems();
+        if (!playerNonQuestNonFFAConditionalItems.empty())
+        {
+            QuestItemMap::const_iterator pqItr = playerNonQuestNonFFAConditionalItems.find(player->GetGUID());
+            if (pqItr != playerNonQuestNonFFAConditionalItems.end())
+            {
+                QuestItemList* pql = pqItr->second;
+                if (pql)
+                {
+                    for (QuestItemList::const_iterator iter = pql->begin(); iter != pql->end(); ++iter)
+                    {
+                        ProcessLootSlot(player, lguid, iter->index);
+                        if (debugMode)
+                            LOG_DEBUG("module.aoe_loot", "AOE Loot: looted conditional item in slot {}", iter->index);
+                    }
+                }
+            }
+        }
+        */
+        // Process quest items
+        QuestItemMap const& playerNonQuestNonFFAConditionalItems = loot->GetPlayerNonQuestNonFFAConditionalItems();
+        if (!playerNonQuestNonFFAConditionalItems.empty())
+        {
+            for (uint8 i = 0; i < playerNonQuestNonFFAConditionalItems.size(); ++i)
+            {
+                uint8 lootSlot = playerNonQuestNonFFAConditionalItems.size() + i;
+                ProcessLootSlot(player, lguid, lootSlot);
+                if (debugMode)
+                LOG_DEBUG("module.aoe_loot", "AOE Loot: looted quest item in slot {}", lootSlot);
+            }
+        }
+
+        // Process quest items
+        QuestItemMap const& playerFFAItems = loot->GetPlayerFFAItems();
+        if (!playerFFAItems.empty())
+        {
+            for (uint8 i = 0; i < playerFFAItems.size(); ++i)
+            {
+                uint8 lootSlot = playerFFAItems.size() + i;
+                ProcessLootSlot(player, lguid, lootSlot);
+                if (debugMode)
+                LOG_DEBUG("module.aoe_loot", "AOE Loot: looted quest item in slot {}", lootSlot);
+            }
+        }
+
+        // Process quest items
+        QuestItemMap const& playerQuestItems = loot->GetPlayerQuestItems();
+        if (!playerQuestItems.empty())
+        {
+            for (uint8 i = 0; i < playerQuestItems.size(); ++i)
+            {
+                uint8 lootSlot = playerQuestItems.size() + i;
+                ProcessLootSlot(player, lguid, lootSlot);
+                if (debugMode)
+                LOG_DEBUG("module.aoe_loot", "AOE Loot: looted quest item in slot {}", lootSlot);
+            }
+        }
 
         // Process quest items
         if (!loot->quest_items.empty())
@@ -399,7 +481,19 @@ bool AoeLootCommandScript::HandleStartAoeLootCommand(ChatHandler* handler, Optio
                 uint8 lootSlot = loot->items.size() + i;
                 ProcessLootSlot(player, lguid, lootSlot);
                 if (debugMode)
-                    LOG_DEBUG("module.aoe_loot", "AOE Loot: looted quest item in slot {}", lootSlot);
+                LOG_DEBUG("module.aoe_loot", "AOE Loot: looted quest item in slot {}", lootSlot);
+            }
+        }
+ 
+        // Process quest items
+        if (!loot->quest_items.empty())
+        {
+            for (uint8 i = 0; i < loot->quest_items.size(); ++i)
+            {
+                uint8 lootSlot = loot->items.size() + i;
+                ProcessLootSlot(player, lguid, lootSlot);
+                if (debugMode)
+                LOG_DEBUG("module.aoe_loot", "AOE Loot: looted quest item in slot {}", lootSlot);
             }
         }
     
