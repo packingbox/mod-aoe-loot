@@ -20,6 +20,8 @@
 using namespace Acore::ChatCommands;
 using namespace WorldPackets;
 
+std::map<uint64, bool> playerAoeLootEnabled;
+
 bool AoeLootServer::CanPacketReceive(WorldSession* session, WorldPacket& packet)
 {
     if (packet.GetOpcode() == CMSG_LOOT)
@@ -27,9 +29,18 @@ bool AoeLootServer::CanPacketReceive(WorldSession* session, WorldPacket& packet)
         Player* player = session->GetPlayer();
         if (player)
         {
+            uint64 guid = player->GetGUID().GetRawValue();
+            
+            // Check if player has explicitly disabled AOE loot
+            if (playerAoeLootEnabled.find(guid) != playerAoeLootEnabled.end() && 
+                !playerAoeLootEnabled[guid])
+            {
+                // Let normal looting proceed
+                return true;
+            }
             // Trigger AOE loot when a player attempts to loot a corpse
             ChatHandler handler(player->GetSession());
-            handler.ParseCommands(".startaoeloot");
+            handler.ParseCommands(".aoeloot startaoeloot");
         }
     }
     return true;
@@ -37,11 +48,45 @@ bool AoeLootServer::CanPacketReceive(WorldSession* session, WorldPacket& packet)
 
 ChatCommandTable AoeLootCommandScript::GetCommands() const
 {
-    static ChatCommandTable playerAoeLootCommandTable =
+    static ChatCommandTable aoeLootSubCommandTable =
     {
-        { "startaoeloot", HandleStartAoeLootCommand, SEC_PLAYER, Console::No }
+        { "startaoeloot", HandleStartAoeLootCommand, SEC_PLAYER, Console::No },
+        { "on",  HandleAoeLootOnCommand,  SEC_PLAYER, Console::No },
+        { "off", HandleAoeLootOffCommand, SEC_PLAYER, Console::No }
     };
-    return playerAoeLootCommandTable;
+
+    static ChatCommandTable aoeLootCommandTable =
+    {
+        { "aoeloot", nullptr, SEC_PLAYER, Console::No, aoeLootSubCommandTable }
+    };
+    
+    return aoeLootCommandTable;
+}
+
+bool AoeLootCommandScript::HandleAoeLootOnCommand(ChatHandler* handler, Optional<std::string> /*args*/)
+{
+    Player* player = handler->GetSession()->GetPlayer();
+    if (!player)
+        return true;
+
+    uint64 guid = player->GetGUID().GetRawValue();
+    playerAoeLootEnabled[guid] = true;
+
+    handler->PSendSysMessage("AOE looting has been enabled for your character. Type: '.aoeloot off' to turn AoE Looting Off.");
+    return true;
+}
+
+bool AoeLootCommandScript::HandleAoeLootOffCommand(ChatHandler* handler, Optional<std::string> /*args*/)
+{
+    Player* player = handler->GetSession()->GetPlayer();
+    if (!player)
+        return true;
+
+    uint64 guid = player->GetGUID().GetRawValue();
+    playerAoeLootEnabled[guid] = false;
+
+    handler->PSendSysMessage("AOE looting has been disabled for your character. Type: '.aoeloot on' to turn AoE Looting on.");
+    return true;
 }
 
 void AoeLootCommandScript::ProcessLootRelease(ObjectGuid lguid, Player* player, Loot* loot)
