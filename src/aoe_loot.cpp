@@ -20,7 +20,7 @@
 using namespace Acore::ChatCommands;
 using namespace WorldPackets;
 
-std::map<uint64, bool> playerAoeLootEnabled;
+extern std::map<uint64, bool> playerAoeLootEnabled;
 
 bool AoeLootServer::CanPacketReceive(WorldSession* session, WorldPacket& packet)
 {
