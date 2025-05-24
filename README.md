@@ -6,7 +6,7 @@
 
 This module enhances the looting experience in AzerothCore by implementing Area-of-Effect (AOE) looting functionality. It allows players to loot multiple corpses at once within a defined radius, significantly improving quality of life for players.
 
-The module has been completely rebuilt from the ground up to provide better performance, stability, and integration with the latest AzerothCore versions.
+The module has been built from the ground up to provide better performance, stability, and integration with the latest AzerothCore versions.
 
 This module does NOT condense, consolidate, or delete unlooted items from corpses. There is built in safety measures to guarantee loot will not ever be lost. The module will automatically default to the preexisting in-game looting logic if only 1 lootable corpse is within the distance set in the config file.
 
