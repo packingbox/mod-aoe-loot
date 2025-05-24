@@ -8,7 +8,7 @@ This module enhances the looting experience in AzerothCore by implementing Area-
 
 The module has been built from the ground up to provide better performance, stability, and integration with the latest AzerothCore versions.
 
-This module does NOT condense, consolidate, or delete unlooted items from corpses. There is built in safety measures to guarantee loot will not ever be lost. The module will automatically default to the preexisting in-game looting logic if only 1 lootable corpse is within the distance set in the config file.
+This module does NOT condense, consolidate, or delete unlooted items from corpses. There is built with safety measures to guarantee loot will never be lost. The module will automatically default to the preexisting in-game looting logic if only 1 lootable corpse is within the distance set in the config file.
 
 If you wish to demo the AoE Looting feature, you can try it out on my AzerothCore private server project. The Best WoW Private Server: https://thebestwowprivateserver.com/ 
 
