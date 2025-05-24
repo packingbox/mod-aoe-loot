@@ -1,8 +1,6 @@
 # AOE Loot Module for AzerothCore
 
 ![AzerothCore](https://img.shields.io/badge/azerothcore-mod-blue.svg)
-![License](https://img.shields.io/github/license/TerraByte-tbwps/mod-aoe-loot)
-![Build Status](https://img.shields.io/github/workflow/status/TerraByte-tbwps/mod-aoe-loot/main)
 
 ## Description
 
