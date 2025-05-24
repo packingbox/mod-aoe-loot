@@ -19,6 +19,7 @@ If you wish to demo the AoE Looting feature, you can try it out on my AzerothCor
 - Compatible with other loot-related modules and core functionality (That I know of. This module runs the same logic as the in-game looting logic minus the distance limitations and a few other very niche cases).
 - Minimal performance impact
 - Customizable messages and notifications
+- The looting logic and execution is handed off to a worker thread and will not hold up your network thread.
 
 ## Requirements
 
