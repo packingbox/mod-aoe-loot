@@ -418,67 +418,7 @@ bool AoeLootCommandScript::HandleStartAoeLootCommand(ChatHandler* handler, Optio
             continue;
 
         player->SetLootGUID(lguid);
-        /*
-        // Add processing for PlayerQuestItems (player-specific quest items)
-        QuestItemMap const& playerQuestItems = loot->GetPlayerQuestItems();
-        if (!playerQuestItems.empty())
-        {
-            QuestItemMap::const_iterator pqItr = playerQuestItems.find(player->GetGUID());
-            if (pqItr != playerQuestItems.end())
-            {
-                QuestItemList* pql = pqItr->second;
-                if (pql)
-                {
-                    for (QuestItemList::const_iterator iter = pql->begin(); iter != pql->end(); ++iter)
-                    {
-                        ProcessLootSlot(player, lguid, iter->index);
-                        if (debugMode)
-                            LOG_DEBUG("module.aoe_loot", "AOE Loot: looted player quest item in slot {}", iter->index);
-                    }
-                }
-            }
-        }
-
-        // Add processing for PlayerFFAItems (Free-For-All quest items)
-        QuestItemMap const& playerFFAItems = loot->GetPlayerFFAItems();
-        if (!playerFFAItems.empty())
-        {
-            QuestItemMap::const_iterator pqItr = playerFFAItems.find(player->GetGUID());
-            if (pqItr != playerFFAItems.end())
-            {
-                QuestItemList* pql = pqItr->second;
-                if (pql)
-                {
-                    for (QuestItemList::const_iterator iter = pql->begin(); iter != pql->end(); ++iter)
-                    {
-                        ProcessLootSlot(player, lguid, iter->index);
-                        if (debugMode)
-                            LOG_DEBUG("module.aoe_loot", "AOE Loot: looted player FFA item in slot {}", iter->index);
-                    }
-                }
-            }
-        }
-
-        // Add processing for PlayerNonQuestNonFFAConditionalItems
-        QuestItemMap const& playerNonQuestNonFFAConditionalItems = loot->GetPlayerNonQuestNonFFAConditionalItems();
-        if (!playerNonQuestNonFFAConditionalItems.empty())
-        {
-            QuestItemMap::const_iterator pqItr = playerNonQuestNonFFAConditionalItems.find(player->GetGUID());
-            if (pqItr != playerNonQuestNonFFAConditionalItems.end())
-            {
-                QuestItemList* pql = pqItr->second;
-                if (pql)
-                {
-                    for (QuestItemList::const_iterator iter = pql->begin(); iter != pql->end(); ++iter)
-                    {
-                        ProcessLootSlot(player, lguid, iter->index);
-                        if (debugMode)
-                            LOG_DEBUG("module.aoe_loot", "AOE Loot: looted conditional item in slot {}", iter->index);
-                    }
-                }
-            }
-        }
-        */
+       
         // Process quest items
         QuestItemMap const& playerNonQuestNonFFAConditionalItems = loot->GetPlayerNonQuestNonFFAConditionalItems();
         if (!playerNonQuestNonFFAConditionalItems.empty())
