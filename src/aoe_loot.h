@@ -18,11 +18,6 @@
 
 using namespace Acore::ChatCommands;
 
-enum AoeLootString
-{
-    AOE_ACORE_STRING_MESSAGE = 50000
-};
-
 class AoeLootServer : public ServerScript
 {
 public:
