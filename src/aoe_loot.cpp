@@ -518,7 +518,7 @@ void AoeLootPlayer::OnPlayerLogin(Player* player)
     if (sConfigMgr->GetOption<bool>("AOELoot.Enable", true) && 
         sConfigMgr->GetOption<bool>("AOELoot.Message", true))
     {
-        ChatHandler(player->GetSession()).PSendSysMessage(AOE_ACORE_STRING_MESSAGE);
+        ChatHandler(player->GetSession()).PSendSysMessage("AOE looting has been enabled for your character. Type: '.aoeloot off' to turn AoE Looting Off.");
     }
 }
 
