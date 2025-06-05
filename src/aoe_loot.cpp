@@ -17,6 +17,9 @@
 #include <fmt/format.h>
 #include "Corpse.h"
 
+// 添加全局变量定义
+std::map<uint64, bool> playerAoeLootEnabled;
+
 using namespace Acore::ChatCommands;
 using namespace WorldPackets;
 
@@ -46,18 +49,21 @@ bool AoeLootServer::CanPacketReceive(WorldSession* session, WorldPacket& packet)
     return true;
 }
 
+// 在最新版本的AzerothCore中，命令表的初始化方式有所改变。让我们重新组织代码以完全符合新的命令表结构：
 ChatCommandTable AoeLootCommandScript::GetCommands() const
 {
+    using namespace Acore::ChatCommands;
+
     static ChatCommandTable aoeLootSubCommandTable =
     {
         { "startaoeloot", HandleStartAoeLootCommand, SEC_PLAYER, Console::No },
-        { "on",  HandleAoeLootOnCommand,  SEC_PLAYER, Console::No },
-        { "off", HandleAoeLootOffCommand, SEC_PLAYER, Console::No }
+        { "on",           HandleAoeLootOnCommand,    SEC_PLAYER, Console::No },
+        { "off",          HandleAoeLootOffCommand,   SEC_PLAYER, Console::No }
     };
 
     static ChatCommandTable aoeLootCommandTable =
     {
-        { "aoeloot", nullptr, SEC_PLAYER, Console::No, aoeLootSubCommandTable }
+        { "aoeloot", aoeLootSubCommandTable }
     };
     
     return aoeLootCommandTable;
